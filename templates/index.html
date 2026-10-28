@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1e293b">
+  <title>Wanderwise — Intelligent AI Travel Planner & Trip Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Google+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet CSS for Interactive Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+  <!-- Markdown Parser (marked.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Interactive Map (Leaflet.js) -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- Chart.js for Budget Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- PDF Generation (html2pdf.js) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
+</head>
+<body>
+  <!-- Top Navigation Bar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="mobile-menu-button" id="mobile-menu" type="button" aria-label="Open conversation history" aria-expanded="false">☰</button>
+      <a class="brand" href="/" aria-label="Wanderwise home">
+        <span class="brand-mark" aria-hidden="true">✈️</span>
+        <span class="brand-text">Wanderwise <small class="brand-sub">Travel Studio</small></span>
+      </a>
+    </div>
+
+    <!-- Main Navigation Tabs -->
+    <nav class="topbar-tools" role="navigation" aria-label="Dashboard Views">
+      <button class="tool-toggle-btn active" id="btn-view-planner" type="button">
+        <span class="tool-icon">🧭</span><span class="tool-text">Trip Studio</span>
+      </button>
+      <button class="tool-toggle-btn" id="btn-view-map" type="button">
+        <span class="tool-icon">🗺️</span><span class="tool-text">Live Map</span>
+      </button>
+      <button class="tool-toggle-btn" id="btn-view-weather" type="button">
+        <span class="tool-icon">☀️</span><span class="tool-text">Weather</span>
+      </button>
+      <button class="tool-toggle-btn" id="btn-view-compare" type="button">
+        <span class="tool-icon">⚖️</span><span class="tool-text">Compare</span>
+      </button>
+    </nav>
+
+    <div class="topbar-right">
+      <div class="topbar-note" id="status-badge"><span class="status-dot"></span><span id="status-text">Ready</span></div>
+      
+      <!-- User Account / Auth Section -->
+      <div id="auth-section">
+        <button class="auth-btn" id="auth-modal-btn" type="button" title="Sign In or Register">
+          <span class="auth-icon">👤</span>
+          <span id="auth-user-label">Sign In</span>
+        </button>
+      </div>
+
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch to dark mode" aria-pressed="false" title="Switch to dark mode">
+        <span id="theme-toggle-icon" aria-hidden="true">☾</span>
+      </button>
+
+      <button class="new-trip-btn" id="new-chat" type="button"><span>＋ Plan New Trip</span></button>
+    </div>
+  </header>
+
+  <!-- Main Application Layout -->
+  <main class="layout" id="planner">
+    <!-- Left Sidebar: Saved Trips & Quick Bookmarks -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-heading">
+        <p class="eyebrow">YOUR TRAVEL ARCHIVE</p>
+        <button class="sidebar-new-chat" id="sidebar-new-chat" type="button" aria-label="Start a new trip" title="New trip">＋</button>
+      </div>
+      <button class="clear-history-btn" id="clear-history" type="button" hidden>
+        <span aria-hidden="true">🗑️</span> Clear chat history
+      </button>
+      <div class="history-list" id="history-list" aria-live="polite">
+        <p class="history-empty">Saved trips will be archived here.</p>
+      </div>
+      
+      <!-- MCA Project Badge -->
+      
+    </aside>
+
+    <!-- Center Workspace: Travel Planner Dashboard -->
+    <section class="main-workspace" id="main-workspace">
+      
+      <!-- 1. The Trip Setup Wizard Bar (Source ➔ Destination Engine) -->
+      <section class="trip-wizard-card" id="trip-wizard-card">
+        <div class="wizard-header">
+          <h2>Plan Your Next Journey</h2>
+          <p>Enter your origin and destination. Wanderwise will build your complete travel studio dashboard.</p>
+        </div>
+
+        <form class="wizard-form" id="wizard-form" onsubmit="return false;">
+          <div class="wizard-inputs-grid">
+            <div class="input-block">
+              <label for="trip-source">🛫 Starting From (Source)</label>
+              <input type="text" id="trip-source" placeholder="e.g. Pune, Mumbai, Delhi" value="Pune" required>
+            </div>
+
+            <div class="input-block">
+              <label for="trip-destination">📍 Destination City</label>
+              <input type="text" id="trip-destination" placeholder="e.g. Goa, Manali, Jaipur" value="Goa" required>
+            </div>
+
+            <div class="input-block">
+              <label for="trip-days">📅 Trip Duration</label>
+              <select id="trip-days">
+                <option value="1">Day Trip (1 Day)</option>
+                <option value="2">Weekend Trip (2 Days)</option>
+                <option value="3" selected>Short Holiday (3 Days)</option>
+                <option value="4">Classic Tour (4 Days)</option>
+                <option value="5">Extended Vacation (5 Days)</option>
+                <option value="6">6 Days Tour</option>
+                <option value="7">Full Week (7 Days)</option>
+                <option value="10">10 Days Grand Tour</option>
+                <option value="custom">✏️ Custom Days...</option>
+              </select>
+              <div id="custom-days-container" style="display: none; margin-top: 6px;">
+                <input type="number" id="trip-custom-days" min="1" max="30" placeholder="Enter days (1 to 30)" style="width: 100%;">
+              </div>
+            </div>
+
+            <div class="input-block">
+              <label for="trip-budget">💰 Total Budget</label>
+              <input type="text" id="trip-budget" placeholder="e.g. ₹25,000" value="₹25,000">
+            </div>
+
+            <div class="input-block">
+              <label for="trip-travelers">👥 Travelers</label>
+              <select id="trip-travelers">
+                <option value="1">Solo Traveler (1)</option>
+                <option value="2">Couple (2)</option>
+                <option value="3">3 Friends</option>
+                <option value="4" selected>4 Friends Group</option>
+                <option value="6">Family / Group (6)</option>
+              </select>
+            </div>
+
+            <div class="input-block">
+              <label for="trip-type">🎒 Travel Vibe</label>
+              <select id="trip-type">
+                <option value="Beach & Relaxation">🏖️ Beach & Relaxation</option>
+                <option value="Mountain Adventure">🏔️ Mountains & Scenic</option>
+                <option value="Heritage & Culture">🏰 Culture & Heritage</option>
+                <option value="Nightlife & Party">🎉 Party & Nightlife</option>
+                <option value="Budget Backpacker">🎒 Budget Backpacker</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="wizard-actions-row">
+            <!-- Quick Destination Inspiration Pills -->
+            <div class="quick-trips">
+              <span class="quick-trips-label">Popular:</span>
+              <button type="button" class="quick-route-chip" data-src="Pune" data-dst="Goa" data-days="3" data-budget="₹22,000">🏖️ Pune ➔ Goa</button>
+              <button type="button" class="quick-route-chip" data-src="Delhi" data-dst="Manali" data-days="4" data-budget="₹25,000">🏔️ Delhi ➔ Manali</button>
+              <button type="button" class="quick-route-chip" data-src="Mumbai" data-dst="Jaipur" data-days="4" data-budget="₹28,000">🏰 Mumbai ➔ Jaipur</button>
+              <button type="button" class="quick-route-chip" data-src="Bengaluru" data-dst="Kerala" data-days="5" data-budget="₹30,000">🌴 Bangalore ➔ Kerala</button>
+            </div>
+
+            <button type="button" class="generate-plan-btn" id="btn-generate-plan">
+              <span class="btn-sparkle">✨</span>
+              <span>Generate Full Travel Studio</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- 2. Dynamic Destination Hero Banner (When Trip is Loaded) -->
+      <section class="destination-hero-banner" id="destination-hero-banner">
+        <div class="hero-image-overlay"></div>
+        <div class="hero-content">
+          <div class="hero-badges-row">
+            <span class="hero-badge route-badge" id="hero-route-tag">🛫 Pune ➔ 📍 Goa</span>
+            <span class="hero-badge weather-badge" id="hero-weather-tag">☀️ 29°C · Clear Sky</span>
+            <span class="hero-badge days-badge" id="hero-days-tag">📅 3 Days</span>
+            <span class="hero-badge budget-badge" id="hero-budget-tag">💰 Total Budget: ₹25,000</span>
+          </div>
+
+          <h1 class="hero-title" id="hero-title">Pune to Goa Coastal Escape</h1>
+          <p class="hero-subtitle" id="hero-subtitle">Your personalized day-by-day travel plan with route options, food guides, packing checklists, and interactive maps.</p>
+
+          <div class="hero-actions-bar">
+            <button type="button" class="hero-btn tts-btn" id="hero-tts-btn">
+              <span>🔊</span> <span>Listen Audio Guide</span>
+            </button>
+            <button type="button" class="hero-btn pdf-btn" id="hero-pdf-btn">
+              <span>📄</span> <span>Export Travel Brochure (PDF)</span>
+            </button>
+            <button type="button" class="hero-btn copy-btn" id="hero-copy-btn">
+              <span>📋</span> <span>Copy Plan</span>
+            </button>
+            <button type="button" class="hero-btn compare-btn" id="hero-compare-btn">
+              <span>⚖️</span> <span>Compare Destination</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Dashboard Interactive Multi-Tab Workspace -->
+      <div class="dashboard-workspace" id="dashboard-workspace">
+        <div class="dashboard-subnav">
+          <button type="button" class="dash-tab active" data-target="dash-schedule">🗓️ Day-by-Day Timeline</button>
+          <button type="button" class="dash-tab" data-target="dash-map">🗺️ Interactive Route Map</button>
+          <button type="button" class="dash-tab" data-target="dash-packing">☑️ Smart Packing Checklist</button>
+        </div>
+
+        <!-- Tab 1: Day-by-Day Timeline Schedule Cards -->
+        <div class="dash-pane active" id="dash-schedule">
+          <div class="itinerary-cards-stream" id="itinerary-cards-stream">
+            <!-- Dynamically populated formatted itinerary -->
+            <div class="empty-dashboard-msg">
+              <span class="empty-icon">🗺️</span>
+              <h3>No Trip Generated Yet</h3>
+              <p>Fill out the Source & Destination above and click <strong>"Generate Full Travel Studio"</strong> to build your day-by-day visual cards.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live weather for the selected destination -->
+        <div class="dash-pane" id="dash-weather" aria-live="polite">
+          <section class="weather-dashboard-card">
+            <div class="weather-dashboard-heading">
+              <span class="weather-dashboard-icon" id="weather-icon" aria-hidden="true">🌤️</span>
+              <div>
+                <p class="eyebrow">LIVE DESTINATION WEATHER</p>
+                <h2 id="weather-city">Weather</h2>
+                <p id="weather-status">Choose Weather to load current conditions.</p>
+              </div>
+            </div>
+            <div class="weather-dashboard-metrics">
+              <div class="weather-metric-card">
+                <span>Temperature</span>
+                <strong id="weather-temperature">--°C</strong>
+              </div>
+              <div class="weather-metric-card">
+                <span>Conditions</span>
+                <strong id="weather-condition">--</strong>
+              </div>
+              <div class="weather-metric-card">
+                <span>Humidity</span>
+                <strong id="weather-humidity">--%</strong>
+              </div>
+              <div class="weather-metric-card">
+                <span>Wind</span>
+                <strong id="weather-wind">-- km/h</strong>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Tab 2: Interactive Route & Destination Map (Prominent & Full Size) -->
+        <div class="dash-pane" id="dash-map">
+          <div class="map-view-card">
+            <div class="map-view-header">
+              <div class="map-title-info" id="map-title-info">📍 Interactive Route & Destination Map</div>
+              <div class="map-header-controls">
+                <button type="button" class="map-reset-btn" id="dash-map-reset-btn">🔄 Fit Route & Pins</button>
+              </div>
+            </div>
+            <div id="interactive-map" class="interactive-map"></div>
+            <div class="map-landmarks-section">
+              <h4 class="map-landmarks-heading">Key Scenic Stops & Attractions Pinned:</h4>
+              <div class="map-pins-list" id="map-pins-list">
+                <!-- Clickable landmark cards -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Interactive Smart Packing Checklist -->
+        <div class="dash-pane" id="dash-packing">
+          <div class="packing-card">
+            <div class="packing-header">
+              <div>
+                <h3>🎒 Smart Packing Checklist</h3>
+                <p>Curated list tailored to your destination climate. Click checkboxes as you pack!</p>
+              </div>
+              <div class="packing-progress-box">
+                <span id="packing-progress-text">0 of 10 Packed (0%)</span>
+                <div class="packing-progress-bar"><div class="packing-progress-fill" id="packing-progress-fill"></div></div>
+              </div>
+            </div>
+
+            <div class="packing-categories-grid" id="packing-categories-grid">
+              <!-- Dynamically populated checklist categories -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Interactive Trip Refine Studio (Voice + Smart Prompts) -->
+      <section class="refine-studio-bar">
+        <div class="refine-chips-row">
+          <span class="refine-label">Customize Plan:</span>
+          <button type="button" class="refine-chip" data-prompt="Add top-rated vegetarian and local seafood restaurant recommendations">🍛 Food Spots</button>
+          <button type="button" class="refine-chip" data-prompt="Add adventure water sports and best beach timing details">🏄 Adventure & Sports</button>
+          <button type="button" class="refine-chip" data-prompt="Suggest cozy cafes and peaceful sunset viewpoints">☕ Cozy Cafes</button>
+          <button type="button" class="refine-chip" data-prompt="What is a good indoor backup plan in case of rain or bad weather?">🌧️ Rain Backup Plan</button>
+        </div>
+
+        <div class="refine-input-row">
+          <button class="mic-button" id="mic-button" type="button" aria-label="Voice Query" title="Speak to customize your plan">
+            <span class="mic-icon">🎤</span>
+            <span class="mic-pulse"></span>
+          </button>
+          <input type="text" id="refine-input" placeholder="Ask Wanderwise to customize anything (e.g. 'Add night market on Day 2', 'Keep it under ₹20,000')...">
+          <button class="refine-send-btn" id="refine-send-btn" type="button">Refine Plan ↑</button>
+        </div>
+        <div class="voice-status" id="voice-status"></div>
+      </section>
+    </section>
+  </main>
+
+  <!-- Destination Comparison Modal -->
+  <div class="modal-overlay" id="compare-modal" aria-hidden="true">
+    <div class="modal-dialog compare-dialog">
+      <div class="modal-header">
+        <h3>⚖️ Destination Comparison Studio</h3>
+        <button type="button" class="modal-close-btn" id="compare-close-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="compare-inputs-row">
+          <div class="form-group">
+            <label>City 1</label>
+            <input type="text" id="compare-city-1" value="Goa" placeholder="e.g. Goa">
+          </div>
+          <div class="compare-vs">VS</div>
+          <div class="form-group">
+            <label>City 2</label>
+            <input type="text" id="compare-city-2" value="Kerala" placeholder="e.g. Kerala, Manali">
+          </div>
+          <button type="button" class="auth-submit-btn compare-run-btn" id="btn-run-compare">Compare Now</button>
+        </div>
+
+        <div class="compare-result-area" id="compare-result-area">
+          <p class="empty-state">Select two destinations and click <strong>"Compare Now"</strong> to view side-by-side cost, weather, and vibe comparisons.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Sign In / Register Modal -->
+  <div class="modal-overlay" id="auth-modal" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-tabs">
+          <button type="button" class="modal-tab active" id="modal-tab-login">Sign In</button>
+          <button type="button" class="modal-tab" id="modal-tab-register">Create Account</button>
+        </div>
+        <button type="button" class="modal-close-btn" id="modal-close-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Login Form -->
+        <form id="form-login" class="auth-form active">
+          <div class="form-group">
+            <label for="login-email">Email Address</label>
+            <input type="email" id="login-email" required placeholder="you@example.com">
+          </div>
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" required placeholder="••••••••">
+          </div>
+          <div class="form-alert" id="login-alert"></div>
+          <button type="submit" class="auth-submit-btn" id="login-submit-btn">Sign In</button>
+        </form>
+
+        <!-- Register Form -->
+        <form id="form-register" class="auth-form">
+          <div class="form-group">
+            <label for="reg-name">Full Name</label>
+            <input type="text" id="reg-name" required placeholder="User">
+          </div>
+          <div class="form-group">
+            <label for="reg-email">Email Address</label>
+            <input type="email" id="reg-email" required placeholder="User Email">
+          </div>
+          <div class="form-group">
+            <label for="reg-password">Password (min 6 characters)</label>
+            <input type="password" id="reg-password" required minlength="6" placeholder="••••••••">
+          </div>
+          <div class="form-alert" id="register-alert"></div>
+          <button type="submit" class="auth-submit-btn" id="register-submit-btn">Create Account</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close conversation history"></button>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
